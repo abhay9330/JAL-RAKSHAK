@@ -25,7 +25,7 @@ const submitButton = document.getElementById("submit-button");
 
 const currentYear = document.getElementById("current-year");
 
-// Track Complaint elements
+// Complaint tracking elements
 const trackForm = document.getElementById("track-form");
 const trackingReference = document.getElementById("tracking-reference");
 const trackingResult = document.getElementById("tracking-result");
@@ -50,6 +50,7 @@ if (menuToggle && navLinks) {
         const isOpen = navLinks.classList.toggle("active");
 
         menuToggle.setAttribute("aria-expanded", String(isOpen));
+
         menuToggle.setAttribute(
             "aria-label",
             isOpen ? "Close navigation menu" : "Open navigation menu"
@@ -59,6 +60,7 @@ if (menuToggle && navLinks) {
     navLinks.querySelectorAll("a").forEach(function (link) {
         link.addEventListener("click", function () {
             navLinks.classList.remove("active");
+
             menuToggle.setAttribute("aria-expanded", "false");
             menuToggle.setAttribute("aria-label", "Open navigation menu");
         });
@@ -86,7 +88,39 @@ function clearMessage() {
 
 
 /* =========================================
-   4. IMAGE PREVIEW
+   4. COMMON API RESPONSE HANDLER
+========================================= */
+
+async function readApiResponse(response) {
+    const contentType = response.headers.get("content-type") || "";
+
+    let result;
+
+    if (contentType.includes("application/json")) {
+        result = await response.json();
+    } else {
+        const text = await response.text();
+
+        throw new Error(
+            response.status === 404
+                ? "API route not found. Please check the backend API routes."
+                : "The server returned an unexpected response. Please check the backend."
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            result.message ||
+            "Server error: " + response.status
+        );
+    }
+
+    return result;
+}
+
+
+/* =========================================
+   5. IMAGE PREVIEW
 ========================================= */
 
 let selectedImageURL = null;
@@ -123,7 +157,9 @@ function handleImageSelection(file) {
     if (!allowedTypes.includes(file.type)) {
         clearImagePreview();
 
-        if (imageInput) imageInput.value = "";
+        if (imageInput) {
+            imageInput.value = "";
+        }
 
         showMessage(
             "Please select a JPG, PNG, or WebP image.",
@@ -138,10 +174,12 @@ function handleImageSelection(file) {
     if (file.size > maximumSize) {
         clearImagePreview();
 
-        if (imageInput) imageInput.value = "";
+        if (imageInput) {
+            imageInput.value = "";
+        }
 
         showMessage(
-            "The selected photo is larger than 5 MB. Please choose a smaller image.",
+            "The selected photo must be smaller than 5 MB.",
             "error"
         );
 
@@ -151,7 +189,11 @@ function handleImageSelection(file) {
     clearImagePreview();
 
     if (!imagePreview) {
-        showMessage("Image preview element not found.", "error");
+        showMessage(
+            "Image preview element was not found in the HTML.",
+            "error"
+        );
+
         return;
     }
 
@@ -183,7 +225,7 @@ if (imageInput) {
 
 
 /* =========================================
-   5. REMOVE PHOTO
+   6. REMOVE PHOTO
 ========================================= */
 
 if (removeImageButton && imageInput) {
@@ -197,12 +239,13 @@ if (removeImageButton && imageInput) {
 
 
 /* =========================================
-   6. DRAG AND DROP PHOTO
+   7. DRAG AND DROP PHOTO
 ========================================= */
 
 if (uploadBox && imageInput) {
     uploadBox.addEventListener("dragover", function (event) {
         event.preventDefault();
+
         uploadBox.classList.add("drag-over");
     });
 
@@ -243,7 +286,7 @@ if (uploadBox && imageInput) {
 
 
 /* =========================================
-   7. GENERATE REFERENCE NUMBER
+   8. GENERATE REFERENCE NUMBER
 ========================================= */
 
 function generateReferenceNumber() {
@@ -259,7 +302,7 @@ function generateReferenceNumber() {
 
 
 /* =========================================
-   8. SUBMIT COMPLAINT TO BACKEND
+   9. SUBMIT COMPLAINT
 ========================================= */
 
 if (complaintForm) {
@@ -268,7 +311,7 @@ if (complaintForm) {
 
         clearMessage();
 
-        if (!imageInput || !submitButton) {
+        if (!submitButton || !imageInput) {
             showMessage(
                 "A required form element is missing. Please check the HTML IDs.",
                 "error"
@@ -294,11 +337,12 @@ if (complaintForm) {
 
         if (!selectedFile) {
             showMessage(
-                "Please upload a photograph of the water leakage.",
+                "Please select a photograph of the water leakage.",
                 "error"
             );
 
             imageInput.focus();
+
             return;
         }
 
@@ -326,8 +370,11 @@ if (complaintForm) {
             return;
         }
 
-        // Only the photo name and size are sent.
-        // The actual image file is not uploaded yet.
+        /*
+         * IMPORTANT:
+         * This sends photo metadata only.
+         * The actual photo file is not uploaded.
+         */
 
         const complaintData = {
             referenceNumber: generateReferenceNumber(),
@@ -364,10 +411,9 @@ if (complaintForm) {
             submittedAt: new Date().toISOString()
         };
 
-        submitButton.disabled = true;
-
         const originalButtonText = submitButton.textContent;
 
+        submitButton.disabled = true;
         submitButton.textContent = "Submitting...";
 
         showMessage(
@@ -376,7 +422,14 @@ if (complaintForm) {
         );
 
         try {
-            const response = await fetch(API_URL, {
+            /*
+             * The backend must support POST /.
+             * If your backend route is /api/complaints,
+             * change API_URL + "/" to API_URL + "/api/complaints"
+             * only after verifying server.js.
+             */
+
+            const response = await fetch(API_URL + "/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -384,12 +437,12 @@ if (complaintForm) {
                 body: JSON.stringify(complaintData)
             });
 
-            const result = await response.json();
+            const result = await readApiResponse(response);
 
-            if (!response.ok || !result.success) {
+            if (!result.success) {
                 throw new Error(
                     result.message ||
-                    "The server could not accept the complaint."
+                    "The server could not save the complaint."
                 );
             }
 
@@ -398,19 +451,12 @@ if (complaintForm) {
                 complaintData.referenceNumber;
 
             showMessage(
-                "Complaint submitted and saved successfully! " +
-                "Your reference number is " +
+                "Complaint submitted successfully! Your reference number is " +
                 savedReference +
-                ". Keep this number to track your complaint.",
+                ". Keep it safe to track your complaint.",
                 "success"
             );
 
-            console.log(
-                "Jal Rakshak backend response:",
-                result
-            );
-
-            // Put the reference number into the tracking form.
             if (trackingReference) {
                 trackingReference.value = savedReference;
             }
@@ -422,6 +468,11 @@ if (complaintForm) {
                 });
             }
 
+            console.log(
+                "Jal Rakshak backend response:",
+                result
+            );
+
         } catch (error) {
             console.error(
                 "Complaint submission failed:",
@@ -429,8 +480,9 @@ if (complaintForm) {
             );
 
             showMessage(
-                error.message ||
-                "Could not connect to the backend. Make sure the server is running at localhost:3000 and try again.",
+                error instanceof TypeError
+                    ? "Could not reach the server. Check the backend URL, CORS settings, and Render service status."
+                    : error.message,
                 "error"
             );
 
@@ -443,7 +495,7 @@ if (complaintForm) {
 
 
 /* =========================================
-   9. CLEAR COMPLAINT ERRORS WHILE TYPING
+   10. CLEAR FORM ERRORS WHILE TYPING
 ========================================= */
 
 if (complaintForm) {
@@ -459,7 +511,7 @@ if (complaintForm) {
 
 
 /* =========================================
-   10. TRACK COMPLAINT
+   11. COMPLAINT TRACKING MESSAGES
 ========================================= */
 
 function showTrackingMessage(message, type) {
@@ -468,11 +520,17 @@ function showTrackingMessage(message, type) {
     trackingResult.replaceChildren();
 
     const messageElement = document.createElement("p");
+
     messageElement.className = type;
     messageElement.textContent = message;
 
     trackingResult.appendChild(messageElement);
 }
+
+
+/* =========================================
+   12. FORMAT TRACKING DATE
+========================================= */
 
 function formatTrackingDate(dateValue) {
     if (!dateValue) return "Not available";
@@ -489,12 +547,18 @@ function formatTrackingDate(dateValue) {
     });
 }
 
+
+/* =========================================
+   13. DISPLAY COMPLAINT DETAILS
+========================================= */
+
 function displayComplaintDetails(complaint) {
     if (!trackingResult) return;
 
     trackingResult.replaceChildren();
 
     const heading = document.createElement("h3");
+
     heading.textContent = "Complaint Details";
 
     const details = [
@@ -507,13 +571,16 @@ function displayComplaintDetails(complaint) {
     ];
 
     const list = document.createElement("dl");
+
     list.className = "tracking-details";
 
     details.forEach(function ([label, value]) {
         const term = document.createElement("dt");
+
         term.textContent = label;
 
         const description = document.createElement("dd");
+
         description.textContent =
             value !== undefined && value !== null && value !== ""
                 ? String(value)
@@ -538,6 +605,7 @@ function displayComplaintDetails(complaint) {
     });
 
     const note = document.createElement("p");
+
     note.textContent =
         "This is the latest status saved in the Jal Rakshak database.";
 
@@ -545,6 +613,11 @@ function displayComplaintDetails(complaint) {
     trackingResult.appendChild(list);
     trackingResult.appendChild(note);
 }
+
+
+/* =========================================
+   14. TRACK COMPLAINT
+========================================= */
 
 if (trackForm && trackingReference && trackButton && trackingResult) {
     trackForm.addEventListener("submit", async function (event) {
@@ -561,6 +634,7 @@ if (trackForm && trackingReference && trackButton && trackingResult) {
             );
 
             trackingReference.focus();
+
             return;
         }
 
@@ -575,22 +649,21 @@ if (trackForm && trackingReference && trackButton && trackingResult) {
         );
 
         try {
+            /*
+             * The backend must support GET /:referenceNumber.
+             * Confirm this route in backend/server.js.
+             */
+
             const response = await fetch(
                 API_URL + "/" + encodeURIComponent(referenceNumber)
             );
 
-            const result = await response.json();
+            const result = await readApiResponse(response);
 
-            if (!response.ok || !result.success) {
+            if (!result.success || !result.complaint) {
                 throw new Error(
                     result.message ||
-                    "Complaint could not be found."
-                );
-            }
-
-            if (!result.complaint) {
-                throw new Error(
-                    "The server did not return complaint details."
+                    "Complaint not found. Please check your reference number."
                 );
             }
 
@@ -603,8 +676,9 @@ if (trackForm && trackingReference && trackButton && trackingResult) {
             );
 
             showTrackingMessage(
-                error.message ||
-                "Could not connect to the server. Please make sure the backend is running and try again.",
+                error instanceof TypeError
+                    ? "Could not reach the server. Check the backend URL, CORS settings, and Render service status."
+                    : error.message,
                 "error"
             );
 
@@ -621,7 +695,7 @@ if (trackForm && trackingReference && trackButton && trackingResult) {
 
 
 /* =========================================
-   11. SMOOTH NAVIGATION
+   15. SMOOTH NAVIGATION
 ========================================= */
 
 document.querySelectorAll('a[href^="#"]').forEach(function (link) {
@@ -649,7 +723,7 @@ document.querySelectorAll('a[href^="#"]').forEach(function (link) {
 
 
 /* =========================================
-   12. INITIALIZATION
+   16. INITIALIZATION
 ========================================= */
 
 console.log(
