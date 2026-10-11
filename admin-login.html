@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jal Rakshak | Admin Login</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e0f7fa, #e8f5e9);
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 32px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #087f8c;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 28px;
+        }
+
+        label {
+            display: block;
+            margin: 16px 0 8px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 13px;
+            margin-top: 24px;
+            border: none;
+            border-radius: 8px;
+            background: #087f8c;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #message {
+            margin-top: 16px;
+            text-align: center;
+            overflow-wrap: anywhere;
+        }
+
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            text-align: center;
+            color: #087f8c;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="login-box">
+        <h1>Jal Rakshak</h1>
+        <p class="subtitle">Admin Dashboard Login</p>
+
+        <form id="login-form">
+            <label for="username">Username</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                autocomplete="username"
+                required
+            >
+
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                required
+            >
+
+            <button type="submit" id="login-button">Login</button>
+            <p id="message" role="status" aria-live="polite"></p>
+        </form>
+
+        <a class="back-link" href="index.html">← Back to Home</a>
+    </main>
+
+    <script>
+      const API_URL = "http://127.0.0.1:3000/api/admin/login";
+      console.log("LOGIN API URL:", API_URL);
+
+        const loginForm = document.getElementById("login-form");
+        const loginButton = document.getElementById("login-button");
+        const message = document.getElementById("message");
+
+
+        loginForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value;
+
+            loginButton.disabled = true;
+            loginButton.textContent = "Logging in...";
+            message.textContent = "";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success || !data.token) {
+                    throw new Error(data.message || "Login failed.");
+                }
+
+                sessionStorage.setItem("adminToken", data.token);
+                message.textContent = "Login successful! Opening dashboard...";
+
+                window.location.href = "admin.html";
+            } catch (error) {
+                message.textContent =
+                    error.message === "Failed to fetch"
+                        ? "Server se connection nahi ho raha. Backend check karo."
+                        : error.message;
+
+                loginButton.disabled = false;
+                loginButton.textContent = "Login";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jal Rakshak | Admin Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f0f7f7;
+            color: #163536;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        header {
+            background: #075e54;
+            color: white;
+            padding: 26px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+        }
+
+        header p {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .logout-btn {
+            background: #ffffff;
+            color: #075e54;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px #0000000d;
+        }
+
+        .card p {
+            margin: 0 0 8px;
+            color: #587171;
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 30px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        input,
+        select,
+        button {
+            font: inherit;
+            padding: 11px 12px;
+            border-radius: 8px;
+        }
+
+        input,
+        select {
+            border: 1px solid #b8cccc;
+            background: white;
+            min-width: 0;
+        }
+
+        #search {
+            flex: 1;
+        }
+
+        button {
+            border: none;
+            background: #087f70;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px #0000000d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 14px;
+            border-bottom: 1px solid #e4eeee;
+        }
+
+        th {
+            background: #e3f2f0;
+        }
+
+        td select {
+            width: 135px;
+        }
+
+        .update-btn {
+            margin-top: 8px;
+            width: 135px;
+        }
+
+        .message {
+            padding: 14px;
+            margin: 16px 0;
+            border-radius: 8px;
+            background: white;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .error {
+            color: #a32626;
+            background: #fff0f0;
+        }
+
+        .success {
+            color: #12643d;
+            background: #e8f8ee;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 28px;
+            color: #587171;
+        }
+
+        @media (max-width: 650px) {
+            body {
+                padding: 12px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <div class="header-top">
+                <div>
+                    <h1>💧 Jal Rakshak Admin Dashboard</h1>
+                    <p>View complaints and update their status.</p>
+                </div>
+
+                <button type="button" class="logout-btn" id="logout-btn">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <section class="summary">
+            <div class="card">
+                <p>Total Complaints</p>
+                <h2 id="total-count">0</h2>
+            </div>
+
+            <div class="card">
+                <p>Pending Complaints</p>
+                <h2 id="pending-count">0</h2>
+            </div>
+
+            <div class="card">
+                <p>Resolved Complaints</p>
+                <h2 id="resolved-count">0</h2>
+            </div>
+        </section>
+
+        <div class="toolbar">
+            <input
+                type="search"
+                id="search"
+                placeholder="Search by reference number or location..."
+                aria-label="Search complaints"
+            >
+
+            <button type="button" id="refresh-btn">
+                Refresh Complaints
+            </button>
+        </div>
+
+        <div id="message" class="message" role="status" aria-live="polite">
+            Loading complaints...
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reference Number</th>
+                        <th>Location</th>
+                        <th>Leakage Type</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Submitted On</th>
+                    </tr>
+                </thead>
+
+                <tbody id="complaints-table">
+                    <tr>
+                        <td colspan="6" class="empty">
+                            Loading complaints...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        "use strict";
+
+        const API_URL = "http://localhost:3000/api/complaints";
+        const LOGIN_PAGE = "admin-login.html";
+
+        // Login check
+        function getAdminToken() {
+            return sessionStorage.getItem("adminToken");
+        }
+
+        if (!getAdminToken()) {
+            window.location.replace(LOGIN_PAGE);
+        }
+
+        const tableBody = document.getElementById("complaints-table");
+        const messageBox = document.getElementById("message");
+        const searchInput = document.getElementById("search");
+        const refreshButton = document.getElementById("refresh-btn");
+
+        let complaints = [];
+
+        function showMessage(text, type = "") {
+            messageBox.textContent = text;
+            messageBox.className = "message";
+
+            if (type) {
+                messageBox.classList.add(type);
+            }
+        }
+
+        function createCell(text) {
+            const cell = document.createElement("td");
+            cell.textContent = text || "N/A";
+            return cell;
+        }
+
+        function handleUnauthorized() {
+            sessionStorage.removeItem("adminToken");
+            window.location.replace(LOGIN_PAGE);
+        }
+
+        function updateSummary() {
+            document.getElementById("total-count").textContent =
+                complaints.length;
+
+            document.getElementById("pending-count").textContent =
+                complaints.filter(c => c.status === "Pending").length;
+
+            document.getElementById("resolved-count").textContent =
+                complaints.filter(c => c.status === "Resolved").length;
+        }
+
+        function renderComplaints() {
+            const query = searchInput.value.trim().toLowerCase();
+
+            const filtered = complaints.filter(complaint =>
+                String(complaint.referenceNumber || "")
+                    .toLowerCase().includes(query) ||
+                String(complaint.location || "")
+                    .toLowerCase().includes(query)
+            );
+
+            tableBody.replaceChildren();
+
+            if (filtered.length === 0) {
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+
+                cell.colSpan = 6;
+                cell.className = "empty";
+                cell.textContent = complaints.length
+                    ? "No matching complaints found."
+                    : "No complaints have been submitted yet.";
+
+                row.appendChild(cell);
+                tableBody.appendChild(row);
+                return;
+            }
+
+            filtered.forEach(complaint => {
+                const row = document.createElement("tr");
+
+                row.appendChild(createCell(complaint.referenceNumber));
+                row.appendChild(createCell(complaint.location));
+                row.appendChild(createCell(complaint.leakageType));
+                row.appendChild(createCell(complaint.priority));
+
+                const statusCell = document.createElement("td");
+                const select = document.createElement("select");
+
+                select.setAttribute(
+                    "aria-label",
+                    "Status for " + complaint.referenceNumber
+                );
+
+                ["Pending", "In Progress", "Resolved"].forEach(status => {
+                    const option = document.createElement("option");
+                    option.value = status;
+                    option.textContent = status;
+                    select.appendChild(option);
+                });
+
+                select.value = complaint.status || "Pending";
+
+                const updateButton = document.createElement("button");
+                updateButton.type = "button";
+                updateButton.className = "update-btn";
+                updateButton.textContent = "Update Status";
+
+                updateButton.addEventListener("click", async () => {
+                    const token = getAdminToken();
+
+                    if (!token) {
+                        handleUnauthorized();
+                        return;
+                    }
+
+                    const newStatus = select.value;
+
+                    updateButton.disabled = true;
+                    updateButton.textContent = "Updating...";
+
+                    try {
+                        const response = await fetch(
+                            API_URL + "/" +
+                            encodeURIComponent(complaint.referenceNumber) +
+                            "/status",
+                            {
+                                method: "PATCH",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "Authorization": "Bearer " + token
+                                },
+                                body: JSON.stringify({
+                                    status: newStatus
+                                })
+                            }
+                        );
+
+                        const result = await response.json();
+
+                        if (response.status === 401) {
+                            handleUnauthorized();
+                            return;
+                        }
+
+                        if (!response.ok || !result.success) {
+                            throw new Error(
+                                result.message || "Status update failed."
+                            );
+                        }
+
+                        showMessage(
+                            "Status updated successfully: " +
+                            complaint.referenceNumber + " → " + newStatus,
+                            "success"
+                        );
+
+                        await loadComplaints();
+
+                    } catch (error) {
+                        showMessage(
+                            error.message ||
+                            "Could not update status. Check the backend.",
+                            "error"
+                        );
+
+                        updateButton.disabled = false;
+                        updateButton.textContent = "Update Status";
+                    }
+                });
+
+                statusCell.appendChild(select);
+                statusCell.appendChild(document.createElement("br"));
+                statusCell.appendChild(updateButton);
+                row.appendChild(statusCell);
+
+                const date = complaint.submittedAt
+                    ? new Date(complaint.submittedAt).toLocaleString()
+                    : "N/A";
+
+                row.appendChild(createCell(date));
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function loadComplaints() {
+            if (!getAdminToken()) {
+                handleUnauthorized();
+                return;
+            }
+
+            showMessage("Loading complaints...");
+            refreshButton.disabled = true;
+
+            try {
+                const response = await fetch(API_URL);
+                const result = await response.json();
+
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+
+                if (!response.ok || !result.success) {
+                    throw new Error(
+                        result.message || "Could not load complaints."
+                    );
+                }
+
+                complaints = Array.isArray(result.complaints)
+                    ? result.complaints
+                    : [];
+
+                updateSummary();
+                renderComplaints();
+
+                showMessage(
+                    "Loaded " + complaints.length + " complaint(s).",
+                    "success"
+                );
+
+            } catch (error) {
+                showMessage(
+                    "Could not load complaints. Make sure the backend is running. " +
+                    error.message,
+                    "error"
+                );
+            } finally {
+                refreshButton.disabled = false;
+            }
+        }
+
+        document.getElementById("logout-btn")
+            .addEventListener("click", () => {
+                sessionStorage.removeItem("adminToken");
+                window.location.replace(LOGIN_PAGE);
+            });
+
+        searchInput.addEventListener("input", renderComplaints);
+        refreshButton.addEventListener("click", loadComplaints);
+
+        if (getAdminToken()) {
+            loadComplaints();
+        }
+    </script>
+</body>
+</html>
