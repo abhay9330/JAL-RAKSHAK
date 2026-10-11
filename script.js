@@ -5,7 +5,7 @@
 ========================================= */
 
 // Backend API URL
-const API_URL = "http://localhost:3000/api/complaints";
+const API_URL = "https://jal-rakshak-api.onrender.com";
 
 // Get HTML elements
 const menuToggle = document.getElementById("menu-toggle");
